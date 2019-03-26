@@ -12,14 +12,14 @@ import os
 import sys
 import traceback
 
+import serverless_wsgi
+
 # Call decompression helper from `serverless-python-requirements` if
 # available. See: https://github.com/UnitedIncome/serverless-python-requirements#dealing-with-lambdas-size-limitations
 try:
     import unzip_requirements  # noqa
 except ImportError:
     pass
-
-import serverless_wsgi
 
 
 def load_config():
@@ -43,7 +43,11 @@ def import_app(config):
     try:
         wsgi_module = importlib.import_module(wsgi_fqn_parts[-1])
 
-        return getattr(wsgi_module, wsgi_fqn[1])
+        wsgi = getattr(wsgi_module, wsgi_fqn[1])
+        if callable(wsgi):
+            return wsgi()
+        else:
+            return wsgi
     except:  # noqa
         traceback.print_exc()
         raise Exception("Unable to import {}".format(config["app"]))
@@ -97,7 +101,8 @@ def handler(event, context):
                     obj=ScriptInfo(create_app=_create_app),
                 )
             else:
-                raise Exception("Unknown command: {}".format(meta.get("command")))
+                raise Exception(
+                    "Unknown command: {}".format(meta.get("command")))
         except:  # noqa
             return traceback.format_exc()
         finally:
